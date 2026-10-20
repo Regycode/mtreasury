@@ -1,0 +1,727 @@
+<title>Moonie Books</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working ledger. Sticky header with cash position and tabs; each tab is one job (see, enter, report). */
+:root {
+  --bg: #f6f5f9;
+  --panel: #ffffff;
+  --ink: #1d1a26;
+  --muted: #625d70;
+  --line: #e2dfea;
+  --accent: #6a32a8;
+  --accent-soft: #efe7f8;
+  --ok: #1f7a4d;
+  --warn: #9a6200;
+  --bad: #b3261e;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15131b; --panel: #1e1b26; --ink: #ece9f3; --muted: #a29cb2; --line: #332f3e;
+  --accent: #b88bf0; --accent-soft: #2c2340; --ok: #5fc48e; --warn: #e2a845; --bad: #f08a80; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #15131b; --panel: #1e1b26; --ink: #ece9f3; --muted: #a29cb2; --line: #332f3e;
+  --accent: #b88bf0; --accent-soft: #2c2340; --ok: #5fc48e; --warn: #e2a845; --bad: #f08a80; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.top-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; padding-block: 14px 8px; }
+h1 { font-family: var(--font-display); font-weight: 650; font-size: 1.6rem; letter-spacing: -0.01em; margin: 0; }
+h1 span { color: var(--accent); }
+.cashline { color: var(--muted); font-size: 0.85rem; }
+.cashline b { font-family: var(--font-num); font-weight: 500; color: var(--ink); font-size: 1rem; }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 0; scrollbar-width: none; }
+nav.tabs button { all: unset; cursor: pointer; padding: 8px 12px; border-bottom: 2px solid transparent; color: var(--muted); font-weight: 500; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs button:focus-visible, .btn:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+main { padding-block: 20px 48px; display: flex; flex-direction: column; gap: 20px; }
+section[data-tab] { display: flex; flex-direction: column; gap: 20px; }
+h2 { font-family: var(--font-display); font-weight: 650; font-size: 1.15rem; margin: 0; text-wrap: balance; }
+h3 { font-size: 0.95rem; font-weight: 600; margin: 0; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 70ch; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 12px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.kpi .l { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.kpi .v { font-family: var(--font-num); font-size: 1.45rem; font-weight: 500; }
+.kpi .s { font-size: 0.8rem; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.card .note { color: var(--muted); font-size: 0.8rem; margin: -6px 0 0; }
+.tbox { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 500; white-space: nowrap; }
+td.n, th.n { text-align: right; font-family: var(--font-num); white-space: nowrap; }
+tr.total td { font-weight: 600; border-top: 1px solid var(--ink); }
+tr.grand td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: 3px double var(--ink); }
+tr.sec td { font-weight: 600; color: var(--accent); border-bottom: none; padding-top: 14px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+tr.sub td:first-child { padding-left: 22px; }
+tr.check td { color: var(--muted); font-size: 0.8rem; border-bottom: none; }
+td.neg { color: var(--bad); }
+.pill { display: inline-block; font-size: 0.72rem; padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.confirmed { color: var(--ok); } .pill.estimate { color: var(--warn); } .pill.check { color: var(--bad); } .pill.manual { color: var(--accent); }
+.arrow { color: var(--muted); }
+.statement table { min-width: 640px; }
+.statement td:first-child { min-width: 15rem; }
+.statement th.n { min-width: 7.5rem; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--accent-soft); border-radius: var(--r); padding: 3px; gap: 2px; }
+.seg button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 6px; font-weight: 500; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.btn { font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--r); padding: 8px 14px; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { padding: 2px 10px; font-size: 0.8rem; font-weight: 500; }
+.btn.danger { border-color: var(--bad); color: var(--bad); background: transparent; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+form.entry { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 12px 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field label { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+.field input, .field select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
+.field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.field .hint { font-size: 0.75rem; color: var(--muted); }
+.formfoot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.post { font-size: 0.8rem; color: var(--muted); font-family: var(--font-num); }
+.toast { color: var(--ok); font-weight: 500; }
+.err { color: var(--bad); font-weight: 500; }
+.empty { color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filters input, .filters select { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); min-width: 0; }
+.filters input { flex: 1 1 14rem; max-width: 22rem; }
+.notes { max-width: 72ch; display: flex; flex-direction: column; gap: 14px; }
+.notes p { margin: 0; }
+.notes li { margin-bottom: 6px; }
+.flowbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); }
+.flowbar i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+@media (max-width: 560px) { .hide-sm { display: none; } }
+@media (prefers-reduced-motion: no-preference) { section[data-tab] { animation: fade .2s ease-out; } @keyframes fade { from { opacity: .4; } to { opacity: 1; } } }
+</style>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <h1>Moonie <span>Books</span></h1>
+      <div class="cashline" id="cashline">Loading the ledger…</div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-overview" data-go="overview" aria-selected="true">Overview</button>
+      <button role="tab" id="tab-add" data-go="add" aria-selected="false">Add entry</button>
+      <button role="tab" id="tab-statements" data-go="statements" aria-selected="false">Statements</button>
+      <button role="tab" id="tab-journal" data-go="journal" aria-selected="false">Journal</button>
+      <button role="tab" id="tab-notes" data-go="notes" aria-selected="false">Notes</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- OVERVIEW -->
+  <section data-tab="overview" id="overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Shareholder input</h2>
+        <p class="note">Money shareholders have put into Moonie, and where it landed.</p>
+        <div class="tbox"><table id="t-capital"><thead><tr><th>From</th><th class="hide-sm">Landed in</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Cost of transactions</h2>
+        <p class="note">Bank and telco charges for moving money, by month.</p>
+        <div class="legend" id="cost-legend"></div>
+        <div class="flowbar" id="cost-bar" aria-hidden="true"></div>
+        <div class="tbox"><table id="t-costs"><thead><tr><th>Month</th><th class="n">Bank</th><th class="n">Telco</th><th class="n">Total</th></tr></thead><tbody></tbody></table></div>
+        <p class="note" id="cost-ratio"></p>
+      </div>
+      <div class="card">
+        <h2>Internal movements</h2>
+        <p class="note">Money moved between Moonie's own accounts. These change where cash sits, not how much there is.</p>
+        <div class="tbox"><table id="t-moves"><thead><tr><th>Date</th><th>From <span class="arrow">→</span> To</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Customer money</h2>
+        <p class="note">Client funds Moonie holds and pays out. This money is owed to customers; it is not Moonie's.</p>
+        <div class="tbox"><table id="t-customer"><tbody></tbody></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Where the cash is</h2>
+      <p class="note">Balance in each account today, from the ledger.</p>
+      <div class="tbox"><table id="t-cash"><thead><tr><th>Account</th><th class="n">XAF</th><th>Status</th><th class="hide-sm">Based on</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ADD ENTRY -->
+  <section data-tab="add" id="add" hidden>
+    <div>
+      <h2>Add an entry</h2>
+      <p class="lede">Record money going out or coming in. The statements update as soon as you save.</p>
+    </div>
+    <div class="card">
+      <div class="seg" role="group" aria-label="Entry type" id="kind-seg">
+        <button type="button" data-kind="expense" aria-pressed="true">Expense</button>
+        <button type="button" data-kind="investment" aria-pressed="false">Investment</button>
+        <button type="button" data-kind="capital" aria-pressed="false">Shareholder capital</button>
+        <button type="button" data-kind="transfer" aria-pressed="false">Internal movement</button>
+        <button type="button" data-kind="income" aria-pressed="false">Other income</button>
+      </div>
+      <form class="entry" id="entry-form" novalidate>
+        <div class="field"><label for="f-date">Date</label><input type="date" id="f-date" required></div>
+        <div class="field"><label for="f-amount">Amount (XAF)</label><input type="text" inputmode="numeric" id="f-amount" placeholder="e.g. 25,000" required></div>
+        <div class="field" data-for="expense investment transfer"><label for="f-from">Paid from</label><select id="f-from"></select></div>
+        <div class="field" data-for="capital transfer income"><label for="f-to">Paid into</label><select id="f-to"></select></div>
+        <div class="field" data-for="expense"><label for="f-cat">Expense category</label><select id="f-cat"></select></div>
+        <div class="field" data-for="investment"><label for="f-acat">What was bought</label><select id="f-acat"></select></div>
+        <div class="field" data-for="investment"><label for="f-life">Useful life (months)</label><input type="number" id="f-life" min="1" max="240" value="36"><span class="hint">Spread over this many months as depreciation, from the month after purchase.</span></div>
+        <div class="field" data-for="capital"><label for="f-who">Shareholder</label><input type="text" id="f-who" placeholder="Name"></div>
+        <div class="field" data-for="transfer"><label for="f-fee">Fee charged (XAF)</label><input type="text" inputmode="numeric" id="f-fee" placeholder="0"></div>
+        <div class="field" data-for="transfer"><label for="f-feetype">Fee charged by</label><select id="f-feetype"><option value="bank">Bank</option><option value="telco">Telco (MTN / Orange)</option></select></div>
+        <div class="field wide"><label for="f-desc">Description</label><input type="text" id="f-desc" placeholder="What it was for, who was paid" maxlength="160"></div>
+        <div class="formfoot">
+          <button class="btn" type="submit" id="f-save">Save entry</button>
+          <span class="post" id="f-post"></span>
+          <span id="f-msg" role="status"></span>
+        </div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Entries you've added</h2>
+      <div class="tbox"><table id="t-manual"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="n">XAF</th><th></th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- STATEMENTS -->
+  <section data-tab="statements" id="statements" hidden>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Statement" id="stmt-seg">
+        <button type="button" data-stmt="is" aria-pressed="true">Income statement</button>
+        <button type="button" data-stmt="bs" aria-pressed="false">Balance sheet</button>
+        <button type="button" data-stmt="cf" aria-pressed="false">Cash flow</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="dl-msg" role="status"></span>
+        <button class="btn" type="button" id="dl-xlsx">Download 3-statement model (.xlsx)</button>
+      </div>
+    </div>
+    <div class="card statement">
+      <h2 id="stmt-title">Income statement</h2>
+      <p class="note" id="stmt-note"></p>
+      <div class="tbox"><table id="t-stmt"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- JOURNAL -->
+  <section data-tab="journal" id="journal" hidden>
+    <div>
+      <h2>Journal</h2>
+      <p class="lede">Every entry in the books, with the accounts it debits and credits.</p>
+    </div>
+    <div class="filters">
+      <input type="search" id="j-search" placeholder="Search descriptions" aria-label="Search entries">
+      <select id="j-kind" aria-label="Filter by type"><option value="">All types</option></select>
+      <select id="j-status" aria-label="Filter by status"><option value="">Any status</option><option value="confirmed">Confirmed</option><option value="estimate">Estimate</option><option value="check">To check</option><option value="manual">Added by you</option></select>
+    </div>
+    <div class="card">
+      <div class="tbox"><table id="t-journal"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="hide-sm">Debit / credit</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      <p class="note" id="j-count"></p>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section data-tab="notes" id="notes" hidden>
+    <div class="notes">
+      <h2>How these books work</h2>
+      <p>Every entry is posted as a balanced debit and credit, so the balance sheet always balances and the cash flow always ends at the cash the balance sheet shows. The check rows on each statement should read zero.</p>
+      <h3>What each type does</h3>
+      <ul>
+        <li><b>Shareholder capital</b> adds cash and share capital.</li>
+        <li><b>Internal movement</b> moves cash between Moonie's accounts. Only its fee hits the income statement.</li>
+        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit.</li>
+        <li><b>Customer deposit</b> adds cash and money owed to the customer. Moonie's fee on it is revenue; the telco's cut is a transaction cost.</li>
+        <li><b>Customer payout</b> pays customer money out and reduces what Moonie owes them.</li>
+        <li><b>Expense</b> is an operating cost paid in cash.</li>
+        <li><b>Investment</b> becomes a fixed asset and is depreciated in equal monthly amounts.</li>
+      </ul>
+      <h3>General assumptions</h3>
+      <ul>
+        <li>Payouts from the disbursement wallet are made for customers and reduce customer money owed. If payouts run ahead of recorded customer deposits, customer money owed goes negative: Moonie has fronted those payouts with its own float.</li>
+        <li>A wallet whose history starts partway through is brought in with an opening balance as customer money.</li>
+        <li>Figures without a statement behind them are marked as estimates until one arrives.</li>
+        <li>Money sent to an unknown destination sits in "In transit" until it is confirmed.</li>
+        <li>Gaps between a provider's reported balance and its transactions are held as unreconciled differences.</li>
+        <li>No accruals: expenses are recorded when paid. No tax is calculated.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Moonie Books accounting engine: entries -> double-entry lines -> statements.
+const CASH = {
+  cca: 'CCA bank',
+  mtn_disb: 'MTN disbursement wallet',
+  mtn_coll: 'MTN collections wallet',
+  orange: 'Orange Money wallet',
+  off: 'Off platform (shareholder held)',
+  transit: 'In transit, unconfirmed',
+};
+const EXPENSE_CATS = ['Salaries & contractors', 'Tech & hosting', 'API & aggregator fees', 'Licensing & regulatory', 'Legal & accounting', 'Marketing & sales', 'Office & rent', 'Transport & travel', 'Taxes', 'Other'];
+const ASSET_CATS = ['Equipment', 'Software & development', 'Licences', 'Deposits & guarantees', 'Other'];
+
+function postEntry(e) {
+  const a = Math.round(Number(e.amount) || 0), fee = Math.round(Number(e.fee) || 0), rev = Math.round(Number(e.revenue) || 0);
+  const L = [];
+  const dr = (acct, v) => { if (v) L.push({ acct, dr: v, cr: 0 }); };
+  const cr = (acct, v) => { if (v) L.push({ acct, dr: 0, cr: v }); };
+  const cash = (k) => 'cash:' + k;
+  switch (e.kind) {
+    case 'capital': dr(cash(e.to), a); cr('eq:capital', a); break;
+    case 'transfer': dr(cash(e.to), a); dr('cost:' + (e.fee_type || 'bank'), fee); cr(cash(e.from), a + fee); break;
+    case 'fee': dr('cost:' + (e.fee_type || 'bank'), a); cr(cash(e.from), a); break;
+    case 'collection': dr(cash(e.to), a + rev - fee); dr('cost:telco', fee); cr('liab:customer', a); cr('rev:collection', rev); break;
+    case 'payout': dr('liab:customer', a); dr('cost:telco', fee); cr(cash(e.from), a + fee); break;
+    case 'fee_income': dr('liab:customer', a); cr('rev:disbursement', a); break;
+    case 'opening': dr(cash(e.to), a); cr('liab:' + (e.against || 'suspense'), a); break;
+    case 'expense': dr('opex:' + (e.category || 'Other'), a); cr(cash(e.from), a); break;
+    case 'investment': dr('fa:cost', a); cr(cash(e.from), a); break;
+    case 'income': dr(cash(e.to), a); cr('rev:other', a); break;
+  }
+  return L;
+}
+
+const monthKey = (d) => d.slice(0, 7);
+function monthsBetween(first, last) {
+  const out = [];
+  let [y, m] = first.split('-').map(Number);
+  const [ly, lm] = last.split('-').map(Number);
+  while (y < ly || (y === ly && m <= lm)) { out.push(`${y}-${String(m).padStart(2, '0')}`); m++; if (m > 12) { m = 1; y++; } }
+  return out;
+}
+const addMonths = (mk, n) => { let [y, m] = mk.split('-').map(Number); m += n; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1; return `${y}-${String(m).padStart(2, '0')}`; };
+
+// Straight-line depreciation, starting the month after purchase.
+function depreciation(entries, months) {
+  const per = Object.fromEntries(months.map((m) => [m, 0]));
+  for (const e of entries) {
+    if (e.kind !== 'investment') continue;
+    const life = Math.max(1, Math.round(Number(e.life_months) || 36));
+    const cost = Math.round(Number(e.amount) || 0);
+    const start = addMonths(monthKey(e.date), 1);
+    let charged = 0;
+    for (let i = 0; i < life; i++) {
+      const mk = addMonths(start, i);
+      if (!(mk in per)) continue;
+      const v = i === life - 1 ? cost - Math.round(cost / life) * (life - 1) : Math.round(cost / life);
+      per[mk] += v; charged += v;
+    }
+  }
+  return per;
+}
+
+function buildBooks(entries, todayIso) {
+  const es = entries.filter((e) => e && e.date && e.kind).slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
+  const first = es.length ? monthKey(es[0].date) : monthKey(todayIso);
+  const lastEntry = es.length ? monthKey(es[es.length - 1].date) : first;
+  const months = monthsBetween(first, lastEntry > monthKey(todayIso) ? lastEntry : monthKey(todayIso));
+  // movements per month per account (dr - cr)
+  const mv = {}; // acct -> month -> net debit
+  const bump = (acct, mk, v) => { (mv[acct] = mv[acct] || {}); mv[acct][mk] = (mv[acct][mk] || 0) + v; };
+  const journal = [];
+  for (const e of es) {
+    const mk = monthKey(e.date);
+    for (const l of postEntry(e)) { bump(l.acct, mk, l.dr - l.cr); journal.push({ id: e.id, date: e.date, desc: e.desc, ...l }); }
+  }
+  const dep = depreciation(es, months);
+  for (const mk of months) if (dep[mk]) {
+    bump('dep:expense', mk, dep[mk]); bump('fa:accdep', mk, -dep[mk]);
+    journal.push({ id: 'DEP-' + mk, date: mk + '-28', desc: 'Depreciation', acct: 'dep:expense', dr: dep[mk], cr: 0 });
+    journal.push({ id: 'DEP-' + mk, date: mk + '-28', desc: 'Depreciation', acct: 'fa:accdep', dr: 0, cr: dep[mk] });
+  }
+  const accts = Object.keys(mv);
+  const flow = (acct, mk) => (mv[acct] && mv[acct][mk]) || 0; // net debit in month
+  const flowP = (prefix, mk) => accts.filter((a) => a.startsWith(prefix)).reduce((s, a) => s + flow(a, mk), 0);
+  const bal = (acct, mk) => months.filter((m) => m <= mk).reduce((s, m) => s + flow(acct, m), 0);
+  const balP = (prefix, mk) => accts.filter((a) => a.startsWith(prefix)).reduce((s, a) => s + bal(a, mk), 0);
+  const opexCats = [...new Set(accts.filter((a) => a.startsWith('opex:')).map((a) => a.slice(5)))].sort();
+
+  // Income statement (credits positive for revenue, costs shown positive and subtracted)
+  const IS = months.map((mk) => {
+    const revC = -flow('rev:collection', mk), revD = -flow('rev:disbursement', mk), revO = -flow('rev:other', mk);
+    const revenue = revC + revD + revO;
+    const bank = flow('cost:bank', mk), telco = flow('cost:telco', mk);
+    const txn = bank + telco;
+    const opex = Object.fromEntries(opexCats.map((c) => [c, flow('opex:' + c, mk)]));
+    const opexTotal = Object.values(opex).reduce((s, v) => s + v, 0);
+    const d = flow('dep:expense', mk);
+    const gross = revenue - txn, ebitda = gross - opexTotal, net = ebitda - d;
+    return { month: mk, revC, revD, revO, revenue, bank, telco, txn, gross, opex, opexTotal, ebitda, dep: d, net };
+  });
+  const cumNet = (mk) => IS.filter((r) => r.month <= mk).reduce((s, r) => s + r.net, 0);
+  const BS = months.map((mk) => {
+    const cash = Object.fromEntries(Object.keys(CASH).map((k) => [k, bal('cash:' + k, mk)]));
+    const cashTotal = Object.values(cash).reduce((s, v) => s + v, 0);
+    const faCost = bal('fa:cost', mk), accDep = -bal('fa:accdep', mk), faNet = faCost - accDep;
+    const assets = cashTotal + faNet;
+    const customer = -bal('liab:customer', mk), suspense = -bal('liab:suspense', mk);
+    const liabilities = customer + suspense;
+    const capital = -bal('eq:capital', mk), retained = cumNet(mk);
+    const equity = capital + retained;
+    return { month: mk, cash, cashTotal, faCost, accDep, faNet, assets, customer, suspense, liabilities, capital, retained, equity, check: assets - liabilities - equity };
+  });
+  const CF = months.map((mk, i) => {
+    const r = IS[i];
+    const dCust = -flow('liab:customer', mk), dSusp = -flow('liab:suspense', mk);
+    const cfo = r.net + r.dep + dCust + dSusp;
+    const capex = -flow('fa:cost', mk);
+    const cfi = capex;
+    const capitalIn = -flow('eq:capital', mk);
+    const cff = capitalIn;
+    const opening = i ? BS[i - 1].cashTotal : 0;
+    const net = cfo + cfi + cff;
+    return { month: mk, net_income: r.net, dep: r.dep, dCust, dSusp, cfo, capex, cfi, capitalIn, cff, netChange: net, opening, closing: opening + net, check: opening + net - BS[i].cashTotal };
+  });
+  const tb = journal.reduce((s, l) => s + l.dr - l.cr, 0);
+  return { entries: es, months, journal, IS, BS, CF, opexCats, trialBalance: tb };
+}
+
+if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CASH, EXPENSE_CATS, ASSET_CATS };
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const KIND = {
+    capital: 'Shareholder capital', transfer: 'Internal movement', fee: 'Transaction cost', collection: 'Customer deposit',
+    payout: 'Customer payout', fee_income: 'Fee charged to customer', opening: 'Opening balance', expense: 'Expense',
+    investment: 'Investment', income: 'Other income',
+  };
+  const ACCT_FIXED = {
+    'fa:cost': 'Fixed assets', 'fa:accdep': 'Accumulated depreciation', 'liab:customer': 'Customer money owed',
+    'liab:suspense': 'Unreconciled differences', 'eq:capital': 'Share capital', 'rev:collection': 'Collection fees',
+    'rev:disbursement': 'Disbursement fees', 'rev:other': 'Other income', 'cost:bank': 'Bank fees', 'cost:telco': 'Telco fees',
+    'dep:expense': 'Depreciation',
+  };
+  const acctName = (a) => a.startsWith('cash:') ? CASH[a.slice(5)] || a : a.startsWith('opex:') ? a.slice(5) : ACCT_FIXED[a] || a;
+  const STATUS_LABEL = { confirmed: 'Confirmed', estimate: 'Estimate', check: 'To check', manual: 'Added by you' };
+  const CASH_BASIS = {
+    cca: 'CCA bank statement', mtn_disb: 'MTN export and reported balance', mtn_coll: 'Moonie platform records',
+    orange: 'Desk sheet and Orange letter', off: 'Reported by founder', transit: 'CCA transfer, destination unknown',
+  };
+  const CASH_STATUS = { cca: 'confirmed', mtn_disb: 'confirmed', mtn_coll: 'confirmed', orange: 'estimate', off: 'estimate', transit: 'check' };
+
+  const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+  const num = (v) => { const n = Math.round(Number(v) || 0); return n === 0 ? 0 : n; };
+  const xaf = (v) => nf.format(num(v));
+  const acc = (v) => { const n = num(v); return n === 0 ? '–' : n < 0 ? '(' + nf.format(-n) + ')' : nf.format(n); };
+  const monthLabel = (mk) => new Date(mk + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const dayLabel = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const todayIso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const statusOf = (e) => e.origin === 'manual' ? 'manual' : (e.status || 'confirmed');
+
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const k of kids.flat()) if (k != null && k !== false) n.append(k instanceof Node ? k : String(k));
+    return n;
+  }
+  const td = (v, cls) => el('td', { class: cls }, v);
+  const pill = (s) => el('span', { class: 'pill ' + s }, STATUS_LABEL[s] || s);
+  const fill = (sel, rows) => { const b = $(sel + ' tbody'); b.replaceChildren(...rows); };
+
+  const useCap = async (n) => (window.claude && typeof window.claude.use === 'function') ? window.claude.use(n) : null;
+  let entries = [];
+  let books = buildBooks([], todayIso());
+  let loaded = false;
+  let db = null, user = null, canWrite = true;
+
+  // ---------- tabs
+  const TABS = ['overview', 'add', 'statements', 'journal', 'notes'];
+  function go(tab) {
+    if (!TABS.includes(tab)) tab = 'overview';
+    for (const t of TABS) {
+      document.querySelector(`section[data-tab="${t}"]`).hidden = t !== tab;
+      $('#tab-' + t).setAttribute('aria-selected', String(t === tab));
+    }
+    try { localStorage.setItem('mb-tab', tab); } catch (_) {}
+  }
+  document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+
+  // ---------- overview
+  function renderOverview() {
+    const B = books.BS[books.BS.length - 1];
+    const totIS = books.IS.reduce((s, r) => s + r.net, 0);
+    const capital = books.entries.filter((e) => e.kind === 'capital');
+    const kpis = [
+      ['Cash across all accounts', xaf(B.cashTotal) + ' XAF', 'Bank, wallets and off platform'],
+      ['Shareholder input', xaf(B.capital) + ' XAF', capital.length + ' contributions'],
+      ['Customer money owed', xaf(B.customer) + ' XAF', 'Held for clients, not Moonie\'s'],
+      ['Net result to date', (totIS < 0 ? '−' : '') + xaf(Math.abs(totIS)) + ' XAF', totIS < 0 ? 'Loss so far' : 'Profit so far'],
+    ];
+    $('#kpis').replaceChildren(...kpis.map(([l, v, s]) => el('div', { class: 'kpi' }, el('span', { class: 'l' }, l), el('span', { class: 'v' }, v), el('span', { class: 's' }, s))));
+    $('#cashline').replaceChildren('Cash today ', el('b', {}, xaf(B.cashTotal)), ' XAF · books ', B.check === 0 ? 'balance' : 'do not balance');
+
+    // shareholder input by person
+    const by = {};
+    for (const e of capital) {
+      const k = e.counterparty || 'Not named';
+      const o = by[k] || (by[k] = { amt: 0, where: new Set(), st: new Set() });
+      o.amt += num(e.amount); o.where.add(CASH[e.to] || e.to); o.st.add(statusOf(e));
+    }
+    const capRows = Object.entries(by).sort((a, b) => b[1].amt - a[1].amt).map(([k, o]) => el('tr', {},
+      td(k), td([...o.where].join(', '), 'hide-sm'), td(xaf(o.amt), 'n'),
+      td(pill(o.st.has('check') ? 'check' : o.st.has('estimate') ? 'estimate' : o.st.has('manual') ? 'manual' : 'confirmed'))));
+    capRows.push(el('tr', { class: 'total' }, td('Total'), td('', 'hide-sm'), td(xaf(B.capital), 'n'), td('')));
+    fill('#t-capital', capRows);
+
+    // costs by month
+    const bankT = books.IS.reduce((s, r) => s + r.bank, 0), telT = books.IS.reduce((s, r) => s + r.telco, 0);
+    fill('#t-costs', books.IS.map((r) => el('tr', {}, td(monthLabel(r.month)), td(acc(r.bank), 'n'), td(acc(r.telco), 'n'), td(acc(r.txn), 'n')))
+      .concat([el('tr', { class: 'total' }, td('Total'), td(xaf(bankT), 'n'), td(xaf(telT), 'n'), td(xaf(bankT + telT), 'n'))]));
+    const tot = bankT + telT || 1;
+    $('#cost-bar').replaceChildren(el('i', { style: `width:${100 * bankT / tot}%;background:var(--accent)` }), el('i', { style: `width:${100 * telT / tot}%;background:var(--warn)` }));
+    $('#cost-legend').replaceChildren(
+      el('span', {}, el('i', { class: 'sw', style: 'background:var(--accent)' }), 'Bank ' + Math.round(100 * bankT / tot) + '%'),
+      el('span', {}, el('i', { class: 'sw', style: 'background:var(--warn)' }), 'Telco ' + Math.round(100 * telT / tot) + '%'));
+    const moved = books.entries.filter((e) => e.kind === 'collection' || e.kind === 'payout').reduce((s, e) => s + num(e.amount), 0);
+    $('#cost-ratio').textContent = moved
+      ? `Telco fees come to ${(100 * telT / moved).toFixed(2)} XAF per 100 XAF of customer money moved (${xaf(moved)} XAF in and out). Bank fees are mostly SMS-banking charges.`
+      : '';
+
+    // internal movements
+    const moves = books.entries.filter((e) => e.kind === 'transfer');
+    fill('#t-moves', moves.length ? moves.map((e) => el('tr', {},
+      td(dayLabel(e.date)), td([CASH[e.from] || e.from, el('span', { class: 'arrow' }, ' → '), CASH[e.to] || e.to]),
+      td(xaf(e.amount), 'n'), td(pill(statusOf(e))))) : [el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'No internal movements yet.'))]);
+
+    // customer money
+    const sumK = (k, f = 'amount') => books.entries.filter((e) => e.kind === k).reduce((s, e) => s + num(e[f]), 0);
+    const opening = books.entries.filter((e) => e.kind === 'opening' && e.against === 'customer').reduce((s, e) => s + num(e.amount), 0);
+    const rows = [
+      ['Brought in (opening balances)', opening],
+      ['Deposited by customers', sumK('collection')],
+      ['Fees Moonie charged them', -sumK('fee_income')],
+      ['Paid out for customers', -sumK('payout')],
+    ];
+    fill('#t-customer', rows.map(([l, v]) => el('tr', {}, td(l), td(acc(v), 'n')))
+      .concat([el('tr', { class: 'grand' }, td('Owed to customers now'), td(acc(B.customer), 'n'))]));
+
+    // cash by account
+    fill('#t-cash', Object.keys(CASH).map((k) => el('tr', {}, td(CASH[k]), td(acc(B.cash[k]), 'n' + (B.cash[k] < 0 ? ' neg' : '')), td(pill(CASH_STATUS[k])), td(CASH_BASIS[k], 'hide-sm')))
+      .concat([el('tr', { class: 'grand' }, td('Total cash'), td(xaf(B.cashTotal), 'n'), td(''), td('', 'hide-sm'))]));
+  }
+
+  // ---------- statements
+  let stmt = 'is';
+  function isRows() {
+    const R = [['sec', 'Revenue']];
+    R.push(['sub', 'Collection fees', (r) => r.revC], ['sub', 'Disbursement fees', (r) => r.revD]);
+    if (books.IS.some((r) => r.revO)) R.push(['sub', 'Other income', (r) => r.revO]);
+    R.push(['total', 'Total revenue', (r) => r.revenue]);
+    R.push(['sec', 'Cost of transactions'], ['sub', 'Bank fees', (r) => -r.bank], ['sub', 'Telco fees (MTN, Orange)', (r) => -r.telco], ['total', 'Total cost of transactions', (r) => -r.txn]);
+    R.push(['grand', 'Gross profit', (r) => r.gross]);
+    R.push(['sec', 'Operating expenses']);
+    if (!books.opexCats.length) R.push(['sub', 'None recorded yet', () => 0]);
+    for (const c of books.opexCats) R.push(['sub', c, (r) => -(r.opex[c] || 0)]);
+    R.push(['total', 'Total operating expenses', (r) => -r.opexTotal]);
+    R.push(['grand', 'EBITDA', (r) => r.ebitda], ['sub', 'Depreciation', (r) => -r.dep], ['grand', 'Net profit / (loss)', (r) => r.net]);
+    return R;
+  }
+  function bsRows() {
+    const R = [['sec', 'Assets']];
+    for (const k of Object.keys(CASH)) R.push(['sub', CASH[k], (b) => b.cash[k]]);
+    R.push(['total', 'Total cash', (b) => b.cashTotal], ['sub', 'Fixed assets at cost', (b) => b.faCost], ['sub', 'Accumulated depreciation', (b) => -b.accDep], ['grand', 'Total assets', (b) => b.assets]);
+    R.push(['sec', 'Liabilities'], ['sub', 'Customer money owed', (b) => b.customer], ['sub', 'Unreconciled differences', (b) => b.suspense], ['total', 'Total liabilities', (b) => b.liabilities]);
+    R.push(['sec', 'Equity'], ['sub', 'Share capital', (b) => b.capital], ['sub', 'Retained earnings', (b) => b.retained], ['total', 'Total equity', (b) => b.equity]);
+    R.push(['grand', 'Total liabilities and equity', (b) => b.liabilities + b.equity], ['check', 'Check: assets less liabilities and equity', (b) => b.check]);
+    return R;
+  }
+  function cfRows() {
+    return [
+      ['sec', 'Operating activities'], ['sub', 'Net profit / (loss)', (c) => c.net_income], ['sub', 'Add back depreciation', (c) => c.dep],
+      ['sub', 'Increase in customer money owed', (c) => c.dCust], ['sub', 'Increase in unreconciled differences', (c) => c.dSusp], ['total', 'Net cash from operating activities', (c) => c.cfo],
+      ['sec', 'Investing activities'], ['sub', 'Investments in fixed assets', (c) => c.capex], ['total', 'Net cash from investing activities', (c) => c.cfi],
+      ['sec', 'Financing activities'], ['sub', 'Shareholder capital in', (c) => c.capitalIn], ['total', 'Net cash from financing activities', (c) => c.cff],
+      ['grand', 'Net change in cash', (c) => c.netChange], ['sub', 'Cash at start of month', (c) => c.opening], ['grand', 'Cash at end of month', (c) => c.closing],
+      ['check', 'Check: cash at end less balance sheet cash', (c) => c.check],
+    ];
+  }
+  // Statement model shared by the page and the Excel export.
+  function statementModel(which) {
+    const months = books.months;
+    if (which === 'bs') {
+      return { title: 'Balance sheet', note: 'At the end of each month.', head: months.map(monthLabel), rows: bsRows().map(([t, l, f]) => ({ type: t, label: l, vals: f ? books.BS.map(f) : null })) };
+    }
+    const src = which === 'is' ? books.IS : books.CF;
+    const rows = (which === 'is' ? isRows() : cfRows()).map(([t, l, f]) => {
+      if (!f) return { type: t, label: l, vals: null };
+      const vals = src.map(f);
+      let total;
+      if (which === 'cf' && l.startsWith('Cash at start')) total = 0;
+      else if (which === 'cf' && l.startsWith('Cash at end')) total = vals[vals.length - 1];
+      else if (which === 'cf' && t === 'check') total = vals[vals.length - 1];
+      else total = vals.reduce((s, v) => s + v, 0);
+      return { type: t, label: l, vals: vals.concat([total]) };
+    });
+    return { title: which === 'is' ? 'Income statement' : 'Cash flow statement', note: which === 'is' ? 'By month, with the total to date. Costs in brackets.' : 'Indirect method, by month. The last column runs from the first entry to today.', head: months.map(monthLabel).concat(['To date']), rows };
+  }
+  function renderStatement() {
+    const m = statementModel(stmt);
+    $('#stmt-title').textContent = m.title;
+    $('#stmt-note').textContent = m.note;
+    $('#t-stmt thead').replaceChildren(el('tr', {}, el('th', {}, 'XAF'), ...m.head.map((h) => el('th', { class: 'n' }, h))));
+    fill('#t-stmt', m.rows.map((r) => el('tr', { class: r.type === 'sub' ? 'sub' : r.type },
+      td(r.label), ...(r.vals ? r.vals.map((v) => td(r.type === 'check' ? (num(v) === 0 ? '0' : acc(v)) : acc(v), 'n' + (r.type === 'check' && num(v) !== 0 ? ' neg' : ''))) : m.head.map(() => td(''))))));
+    document.querySelectorAll('#stmt-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.stmt === stmt)));
+  }
+  document.querySelectorAll('#stmt-seg button').forEach((b) => b.addEventListener('click', () => { stmt = b.dataset.stmt; renderStatement(); }));
+
+  // ---------- journal
+  const jKind = $('#j-kind');
+  Object.entries(KIND).forEach(([k, v]) => jKind.append(el('option', { value: k }, v)));
+  function postingText(e) {
+    return postEntry(e).map((l) => (l.dr ? 'Dr ' : 'Cr ') + acctName(l.acct)).join(' · ');
+  }
+  function renderJournal() {
+    const q = $('#j-search').value.trim().toLowerCase(), k = jKind.value, st = $('#j-status').value;
+    const list = books.entries.filter((e) => (!k || e.kind === k) && (!st || statusOf(e) === st) && (!q || (String(e.desc || '') + ' ' + (e.counterparty || '') + ' ' + (e.category || '')).toLowerCase().includes(q)))
+      .slice().reverse();
+    fill('#t-journal', list.length ? list.map((e) => el('tr', {},
+      td(dayLabel(e.date)), td(KIND[e.kind] || e.kind), td(e.desc || e.category || ''), td(postingText(e), 'hide-sm post'),
+      td(xaf(e.amount), 'n'), td(pill(statusOf(e))))) : [el('tr', {}, el('td', { colspan: 6, class: 'empty' }, loaded ? 'No entries match.' : 'Loading entries…'))]);
+    $('#j-count').textContent = `${list.length} of ${books.entries.length} entries`;
+  }
+  ['#j-search', '#j-kind', '#j-status'].forEach((s) => $(s).addEventListener('input', renderJournal));
+
+  // ---------- add entry
+  let kind = 'expense';
+  const fFrom = $('#f-from'), fTo = $('#f-to'), fCat = $('#f-cat'), fAcat = $('#f-acat');
+  for (const [k, v] of Object.entries(CASH)) { fFrom.append(el('option', { value: k }, v)); if (k !== 'transit') fTo.append(el('option', { value: k }, v)); }
+  EXPENSE_CATS.forEach((c) => fCat.append(el('option', { value: c }, c)));
+  ASSET_CATS.forEach((c) => fAcat.append(el('option', { value: c }, c)));
+  $('#f-date').value = todayIso();
+  const parseAmt = (s) => Math.round(Number(String(s).replace(/[^\d.]/g, '')) || 0);
+  function formEntry() {
+    const e = { date: $('#f-date').value, kind, amount: parseAmt($('#f-amount').value), desc: $('#f-desc').value.trim() };
+    if (['expense', 'investment', 'transfer'].includes(kind)) e.from = fFrom.value;
+    if (['capital', 'transfer', 'income'].includes(kind)) e.to = fTo.value;
+    if (kind === 'expense') e.category = fCat.value;
+    if (kind === 'investment') { e.category = fAcat.value; e.life_months = Math.max(1, Math.round(Number($('#f-life').value) || 36)); }
+    if (kind === 'capital') e.counterparty = $('#f-who').value.trim();
+    if (kind === 'transfer') { e.fee = parseAmt($('#f-fee').value); e.fee_type = $('#f-feetype').value; }
+    if (!e.desc) e.desc = kind === 'expense' ? e.category : kind === 'investment' ? e.category : kind === 'capital' ? 'Shareholder capital' + (e.counterparty ? ' from ' + e.counterparty : '') : KIND[kind];
+    return e;
+  }
+  function setKind(k) {
+    kind = k;
+    document.querySelectorAll('#kind-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === k)));
+    document.querySelectorAll('#entry-form .field[data-for]').forEach((f) => { f.hidden = !f.dataset.for.split(' ').includes(k); });
+    updatePreview();
+  }
+  function updatePreview() {
+    const e = formEntry();
+    $('#f-post').textContent = e.amount ? postEntry(e).map((l) => (l.dr ? 'Dr ' : 'Cr ') + acctName(l.acct) + ' ' + xaf(l.dr || l.cr)).join('  ·  ') : '';
+  }
+  document.querySelectorAll('#kind-seg button').forEach((b) => b.addEventListener('click', () => setKind(b.dataset.kind)));
+  $('#entry-form').addEventListener('input', updatePreview);
+  $('#f-amount').addEventListener('blur', () => { const v = parseAmt($('#f-amount').value); if (v) $('#f-amount').value = xaf(v); });
+  const msg = (text, cls) => { const m = $('#f-msg'); m.className = cls || ''; m.textContent = text; };
+  $('#entry-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const e = formEntry();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return msg('Pick a date for the entry.', 'err');
+    if (!e.amount) return msg('Enter an amount above zero.', 'err');
+    if (kind === 'transfer' && e.from === e.to) return msg('Choose two different accounts for an internal movement.', 'err');
+    if (!db) return msg('Saving is not available in this view. Open the page signed in to claude.ai.', 'err');
+    $('#f-save').disabled = true; msg('Saving…');
+    try {
+      e.origin = 'manual'; e.status = 'confirmed'; e.created_at = new Date().toISOString();
+      const uid = user && user.id ? await user.id() : null; if (uid) e.created_by = uid;
+      await db.collection('entries').add(e);
+      msg('Saved. The statements now include it.', 'toast');
+      $('#f-amount').value = ''; $('#f-desc').value = ''; $('#f-fee').value = ''; $('#f-who').value = '';
+      updatePreview();
+    } catch (err) {
+      msg(err && err.code === 'invalid_argument' ? 'You can view these books but not add to them. Ask the owner for Contributor access.' : 'Could not save just now. Try again in a moment.', 'err');
+    } finally { $('#f-save').disabled = !canWrite; }
+  });
+  function renderManual() {
+    const mine = entries.filter((e) => e.origin === 'manual').sort((a, b) => b.date.localeCompare(a.date));
+    fill('#t-manual', mine.length ? mine.map((e) => {
+      const del = el('button', { class: 'btn small danger', type: 'button' }, 'Delete');
+      del.addEventListener('click', async () => {
+        if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = 'Confirm delete'; setTimeout(() => { del.dataset.armed = ''; del.textContent = 'Delete'; }, 4000); return; }
+        del.disabled = true;
+        try { await db.collection('entries').doc(e.id).delete(); } catch (_) { del.disabled = false; del.textContent = 'Could not delete'; }
+      });
+      return el('tr', {}, td(dayLabel(e.date)), td(KIND[e.kind] || e.kind), td(e.desc || ''), td(xaf(e.amount), 'n'), td(canWrite && db ? del : ''));
+    }) : [el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Nothing added yet. Your expenses and investments will appear here.'))]);
+  }
+
+  // ---------- Excel export
+  async function downloadXlsx() {
+    const out = $('#dl-msg'); out.className = ''; out.textContent = '';
+    if (typeof XLSX === 'undefined') { out.className = 'err'; out.textContent = 'The Excel library did not load. Reload the page and try again.'; return; }
+    const dl = await useCap('downloads');
+    if (!dl) { out.className = 'err'; out.textContent = 'Downloads are not available in this view.'; return; }
+    const wb = XLSX.utils.book_new();
+    const fmtCols = (ws, n) => { ws['!cols'] = [{ wch: 44 }].concat(Array(n).fill({ wch: 14 })); };
+    for (const [w, name] of [['is', 'Income statement'], ['bs', 'Balance sheet'], ['cf', 'Cash flow']]) {
+      const m = statementModel(w);
+      const aoa = [['Moonie (ETS MOONIE) · ' + m.title + ' · XAF'], [m.note], [], [''].concat(m.head)];
+      for (const r of m.rows) aoa.push([r.type === 'sub' ? '   ' + r.label : r.label].concat(r.vals ? r.vals.map(num) : []));
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      for (const addr of Object.keys(ws)) if (addr[0] !== '!' && typeof ws[addr].v === 'number') ws[addr].z = '#,##0;(#,##0);"-"';
+      fmtCols(ws, m.head.length); XLSX.utils.book_append_sheet(wb, ws, name);
+    }
+    const jr = [['Date', 'Entry', 'Description', 'Account', 'Debit', 'Credit']].concat(books.journal.map((l) => [l.date, l.id, l.desc || '', acctName(l.acct), l.dr || null, l.cr || null]));
+    const wsJ = XLSX.utils.aoa_to_sheet(jr); wsJ['!cols'] = [{ wch: 11 }, { wch: 22 }, { wch: 50 }, { wch: 30 }, { wch: 14 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, wsJ, 'Journal');
+    const er = [['Date', 'Type', 'Description', 'Amount', 'From', 'To', 'Fee', 'Moonie fee', 'Category', 'Counterparty', 'Status', 'Source']]
+      .concat(books.entries.map((e) => [e.date, KIND[e.kind] || e.kind, e.desc || '', num(e.amount), CASH[e.from] || '', CASH[e.to] || '', num(e.fee) || null, num(e.revenue) || null, e.category || '', e.counterparty || '', STATUS_LABEL[statusOf(e)], e.source || 'Moonie Books']));
+    const wsE = XLSX.utils.aoa_to_sheet(er); wsE['!cols'] = [{ wch: 11 }, { wch: 22 }, { wch: 50 }, { wch: 13 }, { wch: 28 }, { wch: 28 }, { wch: 9 }, { wch: 11 }, { wch: 22 }, { wch: 18 }, { wch: 12 }, { wch: 28 }];
+    XLSX.utils.book_append_sheet(wb, wsE, 'Entries');
+    const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    try {
+      await dl.save({ filename: `Moonie_3_statement_model_${todayIso()}.xlsx`, data: new Uint8Array(data) });
+      out.className = 'toast'; out.textContent = 'Saved.';
+    } catch (err) {
+      out.className = err && err.code === 'declined' ? '' : 'err';
+      out.textContent = err && err.code === 'declined' ? 'Download cancelled.' : 'Could not save the file here.';
+    }
+  }
+  $('#dl-xlsx').addEventListener('click', downloadXlsx);
+
+  // ---------- render
+  function renderAll() {
+    books = buildBooks(entries, todayIso());
+    renderOverview(); renderStatement(); renderJournal(); renderManual();
+  }
+
+  // boot
+  setKind('expense');
+  let startTab = location.hash.slice(1);
+  if (!TABS.includes(startTab)) { try { startTab = localStorage.getItem('mb-tab') || 'overview'; } catch (_) { startTab = 'overview'; } }
+  go(startTab);
+  renderAll();
+
+  (async () => {
+    db = await useCap('db');
+    user = await useCap('user');
+    if (user && typeof user.can === 'function') { const c = await user.can('data.write'); if (c === false) canWrite = false; }
+    $('#f-save').disabled = !canWrite;
+    if (!canWrite) msg('You can view these books. Adding entries needs Contributor access.', '');
+    if (!db) { $('#cashline').textContent = 'Sign in to claude.ai to load the ledger.'; return; }
+    db.collection('entries').limit(1000).onSnapshot((snap) => {
+      loaded = true;
+      entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderAll();
+    }, () => { $('#cashline').textContent = 'The ledger stopped updating. Reload the page.'; });
+  })();
+})();
+</script>

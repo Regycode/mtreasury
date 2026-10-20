@@ -1,0 +1,8 @@
+.DS_Store
+__pycache__/
+*.pdf
+*.zip
+venv/
+# Financial data and data-specific files stay on this Mac
+data/
+private/

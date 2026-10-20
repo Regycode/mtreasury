@@ -1,0 +1,155 @@
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <h1>Moonie <span>Books</span></h1>
+      <div class="cashline" id="cashline">Loading the ledger…</div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-overview" data-go="overview" aria-selected="true">Overview</button>
+      <button role="tab" id="tab-add" data-go="add" aria-selected="false">Add entry</button>
+      <button role="tab" id="tab-statements" data-go="statements" aria-selected="false">Statements</button>
+      <button role="tab" id="tab-journal" data-go="journal" aria-selected="false">Journal</button>
+      <button role="tab" id="tab-notes" data-go="notes" aria-selected="false">Notes</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- OVERVIEW -->
+  <section data-tab="overview" id="overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Shareholder input</h2>
+        <p class="note">Money shareholders have put into Moonie, and where it landed.</p>
+        <div class="tbox"><table id="t-capital"><thead><tr><th>From</th><th class="hide-sm">Landed in</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Cost of transactions</h2>
+        <p class="note">Bank and telco charges for moving money, by month.</p>
+        <div class="legend" id="cost-legend"></div>
+        <div class="flowbar" id="cost-bar" aria-hidden="true"></div>
+        <div class="tbox"><table id="t-costs"><thead><tr><th>Month</th><th class="n">Bank</th><th class="n">Telco</th><th class="n">Total</th></tr></thead><tbody></tbody></table></div>
+        <p class="note" id="cost-ratio"></p>
+      </div>
+      <div class="card">
+        <h2>Internal movements</h2>
+        <p class="note">Money moved between Moonie's own accounts. These change where cash sits, not how much there is.</p>
+        <div class="tbox"><table id="t-moves"><thead><tr><th>Date</th><th>From <span class="arrow">→</span> To</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>Customer money</h2>
+        <p class="note">Client funds Moonie holds and pays out. This money is owed to customers; it is not Moonie's.</p>
+        <div class="tbox"><table id="t-customer"><tbody></tbody></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Where the cash is</h2>
+      <p class="note">Balance in each account today, from the ledger.</p>
+      <div class="tbox"><table id="t-cash"><thead><tr><th>Account</th><th class="n">XAF</th><th>Status</th><th class="hide-sm">Based on</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ADD ENTRY -->
+  <section data-tab="add" id="add" hidden>
+    <div>
+      <h2>Add an entry</h2>
+      <p class="lede">Record money going out or coming in. The statements update as soon as you save.</p>
+    </div>
+    <div class="card">
+      <div class="seg" role="group" aria-label="Entry type" id="kind-seg">
+        <button type="button" data-kind="expense" aria-pressed="true">Expense</button>
+        <button type="button" data-kind="investment" aria-pressed="false">Investment</button>
+        <button type="button" data-kind="capital" aria-pressed="false">Shareholder capital</button>
+        <button type="button" data-kind="transfer" aria-pressed="false">Internal movement</button>
+        <button type="button" data-kind="income" aria-pressed="false">Other income</button>
+      </div>
+      <form class="entry" id="entry-form" novalidate>
+        <div class="field"><label for="f-date">Date</label><input type="date" id="f-date" required></div>
+        <div class="field"><label for="f-amount">Amount (XAF)</label><input type="text" inputmode="numeric" id="f-amount" placeholder="e.g. 25,000" required></div>
+        <div class="field" data-for="expense investment transfer"><label for="f-from">Paid from</label><select id="f-from"></select></div>
+        <div class="field" data-for="capital transfer income"><label for="f-to">Paid into</label><select id="f-to"></select></div>
+        <div class="field" data-for="expense"><label for="f-cat">Expense category</label><select id="f-cat"></select></div>
+        <div class="field" data-for="investment"><label for="f-acat">What was bought</label><select id="f-acat"></select></div>
+        <div class="field" data-for="investment"><label for="f-life">Useful life (months)</label><input type="number" id="f-life" min="1" max="240" value="36"><span class="hint">Spread over this many months as depreciation, from the month after purchase.</span></div>
+        <div class="field" data-for="capital"><label for="f-who">Shareholder</label><input type="text" id="f-who" placeholder="Name"></div>
+        <div class="field" data-for="transfer"><label for="f-fee">Fee charged (XAF)</label><input type="text" inputmode="numeric" id="f-fee" placeholder="0"></div>
+        <div class="field" data-for="transfer"><label for="f-feetype">Fee charged by</label><select id="f-feetype"><option value="bank">Bank</option><option value="telco">Telco (MTN / Orange)</option></select></div>
+        <div class="field wide"><label for="f-desc">Description</label><input type="text" id="f-desc" placeholder="What it was for, who was paid" maxlength="160"></div>
+        <div class="formfoot">
+          <button class="btn" type="submit" id="f-save">Save entry</button>
+          <span class="post" id="f-post"></span>
+          <span id="f-msg" role="status"></span>
+        </div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Entries you've added</h2>
+      <div class="tbox"><table id="t-manual"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="n">XAF</th><th></th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- STATEMENTS -->
+  <section data-tab="statements" id="statements" hidden>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Statement" id="stmt-seg">
+        <button type="button" data-stmt="is" aria-pressed="true">Income statement</button>
+        <button type="button" data-stmt="bs" aria-pressed="false">Balance sheet</button>
+        <button type="button" data-stmt="cf" aria-pressed="false">Cash flow</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="dl-msg" role="status"></span>
+        <button class="btn" type="button" id="dl-xlsx">Download 3-statement model (.xlsx)</button>
+      </div>
+    </div>
+    <div class="card statement">
+      <h2 id="stmt-title">Income statement</h2>
+      <p class="note" id="stmt-note"></p>
+      <div class="tbox"><table id="t-stmt"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- JOURNAL -->
+  <section data-tab="journal" id="journal" hidden>
+    <div>
+      <h2>Journal</h2>
+      <p class="lede">Every entry in the books, with the accounts it debits and credits.</p>
+    </div>
+    <div class="filters">
+      <input type="search" id="j-search" placeholder="Search descriptions" aria-label="Search entries">
+      <select id="j-kind" aria-label="Filter by type"><option value="">All types</option></select>
+      <select id="j-status" aria-label="Filter by status"><option value="">Any status</option><option value="confirmed">Confirmed</option><option value="estimate">Estimate</option><option value="check">To check</option><option value="manual">Added by you</option></select>
+    </div>
+    <div class="card">
+      <div class="tbox"><table id="t-journal"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th class="hide-sm">Debit / credit</th><th class="n">XAF</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      <p class="note" id="j-count"></p>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section data-tab="notes" id="notes" hidden>
+    <div class="notes">
+      <h2>How these books work</h2>
+      <p>Every entry is posted as a balanced debit and credit, so the balance sheet always balances and the cash flow always ends at the cash the balance sheet shows. The check rows on each statement should read zero.</p>
+      <h3>What each type does</h3>
+      <ul>
+        <li><b>Shareholder capital</b> adds cash and share capital.</li>
+        <li><b>Internal movement</b> moves cash between Moonie's accounts. Only its fee hits the income statement.</li>
+        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit.</li>
+        <li><b>Customer deposit</b> adds cash and money owed to the customer. Moonie's fee on it is revenue; the telco's cut is a transaction cost.</li>
+        <li><b>Customer payout</b> pays customer money out and reduces what Moonie owes them.</li>
+        <li><b>Expense</b> is an operating cost paid in cash.</li>
+        <li><b>Investment</b> becomes a fixed asset and is depreciated in equal monthly amounts.</li>
+      </ul>
+      <h3>General assumptions</h3>
+      <ul>
+        <li>Payouts from the disbursement wallet are made for customers and reduce customer money owed. If payouts run ahead of recorded customer deposits, customer money owed goes negative: Moonie has fronted those payouts with its own float.</li>
+        <li>A wallet whose history starts partway through is brought in with an opening balance as customer money.</li>
+        <li>Figures without a statement behind them are marked as estimates until one arrives.</li>
+        <li>Money sent to an unknown destination sits in "In transit" until it is confirmed.</li>
+        <li>Gaps between a provider's reported balance and its transactions are held as unreconciled differences.</li>
+        <li>No accruals: expenses are recorded when paid. No tax is calculated.</li>
+      </ul>
+    </div>
+  </section>
+</main>
