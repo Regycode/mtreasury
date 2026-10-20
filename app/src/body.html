@@ -18,6 +18,18 @@
   <!-- OVERVIEW -->
   <section data-tab="overview" id="overview">
     <div class="kpis" id="kpis"></div>
+    <div class="card" id="monthly">
+      <h2>Month by month</h2>
+      <p class="note">Fixed costs are operating expenses, recurring bank fees and depreciation. Telco fees move with volume. The running result includes exceptional items.</p>
+      <div class="mcharts">
+        <div><h3>Income vs fixed costs</h3><div class="legend" id="m-legend"></div><div class="mchart" id="m-bars" role="img" aria-label="Monthly income and fixed costs"></div></div>
+        <div><h3>Result to date</h3><p class="note">Running total, including exceptional items.</p><div class="mchart" id="m-line" role="img" aria-label="Cumulative result by month"></div></div>
+      </div>
+      <div class="tbox"><table id="t-monthly"><thead><tr>
+        <th>Month</th><th class="n">Income</th><th class="n hide-sm">Income to date</th><th class="n">Fixed costs</th><th class="n hide-sm">Telco fees</th>
+        <th class="n">Result</th><th class="n">Result to date</th><th class="n">Customer transactions</th><th class="n">Bank movements</th><th class="n hide-sm">Bank in</th><th class="n hide-sm">Bank out</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
     <div class="grid2">
       <div class="card">
         <h2>Shareholder input</h2>
@@ -135,11 +147,12 @@
       <ul>
         <li><b>Shareholder capital</b> adds cash and share capital.</li>
         <li><b>Internal movement</b> moves cash between Moonie's accounts. Only its fee hits the income statement.</li>
-        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit.</li>
+        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit. A one-off charge outside normal activity is marked exceptional and shown below the ordinary result, as SYSCOHADA does for HAO items.</li>
         <li><b>Customer deposit</b> adds cash and money owed to the customer. Moonie's fee on it is revenue; the telco's cut is a transaction cost.</li>
         <li><b>Customer payout</b> pays customer money out and reduces what Moonie owes them.</li>
         <li><b>Expense</b> is an operating cost paid in cash.</li>
         <li><b>Investment</b> becomes a fixed asset and is depreciated in equal monthly amounts.</li>
+        <li><b>Unallocated</b> is for costs paid outside the tracked accounts when it isn't settled who paid. They count as expenses straight away and sit as a liability until the payer is assigned. When shareholders turn out to have paid them personally, the amount moves to share capital.</li>
       </ul>
       <h3>General assumptions</h3>
       <ul>

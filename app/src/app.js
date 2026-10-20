@@ -3,13 +3,13 @@
   const KIND = {
     capital: 'Shareholder capital', transfer: 'Internal movement', fee: 'Transaction cost', collection: 'Customer deposit',
     payout: 'Customer payout', fee_income: 'Fee charged to customer', opening: 'Opening balance', expense: 'Expense',
-    investment: 'Investment', income: 'Other income',
+    investment: 'Investment', income: 'Other income', settle: 'Unallocated cost settled',
   };
   const ACCT_FIXED = {
     'fa:cost': 'Fixed assets', 'fa:accdep': 'Accumulated depreciation', 'liab:customer': 'Customer money owed',
-    'liab:suspense': 'Unreconciled differences', 'eq:capital': 'Share capital', 'rev:collection': 'Collection fees',
+    'liab:suspense': 'Unreconciled differences', 'liab:unallocated': 'Unallocated expenses', 'eq:capital': 'Share capital', 'rev:collection': 'Collection fees',
     'rev:disbursement': 'Disbursement fees', 'rev:other': 'Other income', 'cost:bank': 'Bank fees', 'cost:telco': 'Telco fees',
-    'dep:expense': 'Depreciation',
+    'dep:expense': 'Depreciation', 'cost:exceptional': 'Exceptional items (HAO)',
   };
   const acctName = (a) => a.startsWith('cash:') ? CASH[a.slice(5)] || a : a.startsWith('opex:') ? a.slice(5) : ACCT_FIXED[a] || a;
   const STATUS_LABEL = { confirmed: 'Confirmed', estimate: 'Estimate', check: 'To check', manual: 'Added by you' };
@@ -62,13 +62,14 @@
   // ---------- overview
   function renderOverview() {
     const B = books.BS[books.BS.length - 1];
-    const totIS = books.IS.reduce((s, r) => s + r.net, 0);
-    const capital = books.entries.filter((e) => e.kind === 'capital');
+    const totIS = books.IS.reduce((s, r) => s + r.ordinary, 0);
+    const totNet = books.IS.reduce((s, r) => s + r.net, 0);
+    const capital = books.entries.filter((e) => e.kind === 'capital' || (e.kind === 'settle' && e.from === 'shareholder'));
     const kpis = [
       ['Cash across all accounts', xaf(B.cashTotal) + ' XAF', 'Bank, wallets and off platform'],
       ['Shareholder input', xaf(B.capital) + ' XAF', capital.length + ' contributions'],
       ['Customer money owed', xaf(B.customer) + ' XAF', 'Held for clients, not Moonie\'s'],
-      ['Net result to date', (totIS < 0 ? '−' : '') + xaf(Math.abs(totIS)) + ' XAF', totIS < 0 ? 'Loss so far' : 'Profit so far'],
+      ['Ordinary result to date', (totIS < 0 ? '−' : '') + xaf(Math.abs(totIS)) + ' XAF', 'Net after exceptional items: ' + (totNet < 0 ? '−' : '') + xaf(Math.abs(totNet))],
     ];
     $('#kpis').replaceChildren(...kpis.map(([l, v, s]) => el('div', { class: 'kpi' }, el('span', { class: 'l' }, l), el('span', { class: 'v' }, v), el('span', { class: 's' }, s))));
     $('#cashline').replaceChildren('Cash today ', el('b', {}, xaf(B.cashTotal)), ' XAF · books ', B.check === 0 ? 'balance' : 'do not balance');
@@ -78,7 +79,7 @@
     for (const e of capital) {
       const k = e.counterparty || 'Not named';
       const o = by[k] || (by[k] = { amt: 0, where: new Set(), st: new Set() });
-      o.amt += num(e.amount); o.where.add(CASH[e.to] || e.to); o.st.add(statusOf(e));
+      o.amt += num(e.amount); o.where.add(e.kind === 'settle' ? 'Costs paid personally' : CASH[e.to] || e.to); o.st.add(statusOf(e));
     }
     const capRows = Object.entries(by).sort((a, b) => b[1].amt - a[1].amt).map(([k, o]) => el('tr', {},
       td(k), td([...o.where].join(', '), 'hide-sm'), td(xaf(o.amt), 'n'),
@@ -123,6 +124,89 @@
       .concat([el('tr', { class: 'grand' }, td('Total cash'), td(xaf(B.cashTotal), 'n'), td(''), td('', 'hide-sm'))]));
   }
 
+  // ---------- month by month
+  const compact = (v) => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1e6 ? s + (a / 1e6).toFixed(a % 1e6 ? 1 : 0) + 'M' : a >= 1e3 ? s + Math.round(a / 1e3) + 'k' : s + Math.round(a); };
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs) => { const n = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
+  function niceTicks(lo, hi, count) {
+    const span = hi - lo || 1, raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= count) || 10 * mag;
+    const out = []; for (let v = Math.floor(lo / step) * step; v <= hi + step * 0.001; v += step) out.push(Math.round(v)); return out;
+  }
+  function renderMonthly() {
+    const M = monthlyStats(books);
+    const sumK = (k) => M.reduce((s, m) => s + m[k], 0);
+    fill('#t-monthly', M.map((m) => el('tr', {},
+      td(monthLabel(m.month)), td(acc(m.income), 'n'), td(acc(m.cumIncome), 'n hide-sm'), td(acc(-m.fixed), 'n'), td(acc(-m.telco), 'n hide-sm'),
+      td(acc(m.ordinary), 'n' + (m.ordinary < 0 ? ' neg' : '')), td(acc(m.cumNet), 'n' + (m.cumNet < 0 ? ' neg' : '')),
+      td(xaf(m.transactions), 'n'), td(xaf(m.bankCount), 'n'), td(acc(m.bankIn), 'n hide-sm'), td(acc(-m.bankOut), 'n hide-sm'))).concat([
+      el('tr', { class: 'total' }, td('Total'), td(acc(sumK('income')), 'n'), td('', 'hide-sm'), td(acc(-sumK('fixed')), 'n'), td(acc(-sumK('telco')), 'n hide-sm'),
+        td(acc(sumK('ordinary')), 'n'), td(acc(M.length ? M[M.length - 1].cumNet : 0), 'n'), td(xaf(sumK('transactions')), 'n'), td(xaf(sumK('bankCount')), 'n'),
+        td(acc(sumK('bankIn')), 'n hide-sm'), td(acc(-sumK('bankOut')), 'n hide-sm'))]));
+
+    const C = { income: 'var(--ok)', fixed: 'var(--warn)', cum: 'var(--accent)' };
+    $('#m-legend').replaceChildren(
+      el('span', {}, el('i', { class: 'sw', style: `background:${C.income}` }), 'Income'),
+      el('span', {}, el('i', { class: 'sw', style: `background:${C.fixed}` }), 'Fixed costs'));
+    const tipLines = (m) => [el('div', { style: 'color:var(--muted)' }, monthLabel(m.month)),
+      el('div', {}, 'Income ', el('b', {}, xaf(m.income))), el('div', {}, 'Fixed costs ', el('b', {}, xaf(m.fixed))),
+      el('div', {}, 'Result to date ', el('b', {}, acc(m.cumNet))), el('div', {}, m.transactions + ' customer transactions · ' + m.bankCount + ' bank movements')];
+    monthChart('#m-bars', M, [m => m.income, m => m.fixed], 'bars', [C.income, C.fixed], tipLines);
+    monthChart('#m-line', M, [m => m.cumNet], 'line', [C.cum], tipLines);
+  }
+  // One small chart per job: grouped bars, or a line with points. Scale fits its own series.
+  function monthChart(sel, M, series, type, colors, tipLines) {
+    const box = $(sel);
+    box.replaceChildren();
+    if (!M.length) return;
+    const W = Math.max(280, box.clientWidth || 480), H = 200, mt = 10, mb = 24;
+    const vals = M.flatMap((m) => series.map((f) => f(m)));
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals, 1), 4);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}` });
+    box.append(svg);
+    const probe = sv('text', {}); svg.append(probe);
+    let ml = 0; for (const t of ticks) { probe.textContent = compact(t); ml = Math.max(ml, probe.getComputedTextLength ? probe.getComputedTextLength() : 30); }
+    probe.remove(); ml += 10;
+    const mr = 8, band = (W - ml - mr) / M.length;
+    const y = (v) => mt + (H - mt - mb) * (1 - (v - y0) / (y1 - y0 || 1));
+    for (const t of ticks) {
+      svg.append(sv('line', { x1: ml, x2: W - mr, y1: y(t), y2: y(t), stroke: t === 0 ? 'var(--muted)' : 'var(--line)', 'stroke-width': 1 }));
+      const lab = sv('text', { x: ml - 6, y: y(t), 'text-anchor': 'end', 'dominant-baseline': 'middle' }); lab.textContent = compact(t); svg.append(lab);
+    }
+    const bw = Math.min(28, band * 0.3);
+    const pts = [];
+    M.forEach((m, i) => {
+      const cx = ml + band * (i + 0.5);
+      const lab = sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle' }); lab.textContent = monthLabel(m.month); svg.append(lab);
+      if (type === 'bars') {
+        series.forEach((f, k) => {
+          const v = f(m), x = cx - (series.length * (bw + 4)) / 2 + k * (bw + 4) + 2;
+          if (v) svg.append(sv('rect', { x, y: y(Math.max(0, v)), width: bw, height: Math.max(1, Math.abs(y(v) - y(0))), rx: 3, fill: colors[k] }));
+        });
+      } else pts.push([cx, y(series[0](m))]);
+    });
+    if (pts.length) {
+      svg.append(sv('polyline', { points: pts.map((p) => p.join(',')).join(' '), fill: 'none', stroke: colors[0], 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      pts.forEach(([px, py], i) => { svg.append(sv('circle', { cx: px, cy: py, r: i === pts.length - 1 ? 4.5 : 3.5, fill: colors[0] })); });
+      const [lx, ly] = pts[pts.length - 1];
+      const end = sv('text', { x: lx, y: ly - 10, 'text-anchor': 'end', style: 'fill:var(--ink);font-weight:500' }); end.textContent = compact(series[0](M[M.length - 1])); svg.append(end);
+    }
+    const tip = el('div', { class: 'mtip', hidden: true }); box.append(tip);
+    M.forEach((m, i) => {
+      const hit = sv('rect', { x: ml + band * i, y: mt, width: band, height: H - mt - mb, fill: 'transparent' });
+      hit.addEventListener('mousemove', (ev) => {
+        const r = box.getBoundingClientRect();
+        tip.replaceChildren(...tipLines(m)); tip.hidden = false;
+        tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, ev.clientX - r.left + 12)) + 'px';
+        tip.style.top = Math.max(0, ev.clientY - r.top - tip.offsetHeight - 8) + 'px';
+      });
+      hit.addEventListener('mouseleave', () => { tip.hidden = true; });
+      svg.append(hit);
+    });
+  }
+  let rsz; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(renderMonthly, 150); });
+
   // ---------- statements
   let stmt = 'is';
   function isRows() {
@@ -136,14 +220,15 @@
     if (!books.opexCats.length) R.push(['sub', 'None recorded yet', () => 0]);
     for (const c of books.opexCats) R.push(['sub', c, (r) => -(r.opex[c] || 0)]);
     R.push(['total', 'Total operating expenses', (r) => -r.opexTotal]);
-    R.push(['grand', 'EBITDA', (r) => r.ebitda], ['sub', 'Depreciation', (r) => -r.dep], ['grand', 'Net profit / (loss)', (r) => r.net]);
+    R.push(['grand', 'EBITDA', (r) => r.ebitda], ['sub', 'Depreciation', (r) => -r.dep], ['grand', 'Ordinary result', (r) => r.ordinary]);
+    R.push(['sub', 'Exceptional items (HAO)', (r) => -r.exc], ['grand', 'Net profit / (loss)', (r) => r.net]);
     return R;
   }
   function bsRows() {
     const R = [['sec', 'Assets']];
     for (const k of Object.keys(CASH)) R.push(['sub', CASH[k], (b) => b.cash[k]]);
     R.push(['total', 'Total cash', (b) => b.cashTotal], ['sub', 'Fixed assets at cost', (b) => b.faCost], ['sub', 'Accumulated depreciation', (b) => -b.accDep], ['grand', 'Total assets', (b) => b.assets]);
-    R.push(['sec', 'Liabilities'], ['sub', 'Customer money owed', (b) => b.customer], ['sub', 'Unreconciled differences', (b) => b.suspense], ['total', 'Total liabilities', (b) => b.liabilities]);
+    R.push(['sec', 'Liabilities'], ['sub', 'Customer money owed', (b) => b.customer], ['sub', 'Unreconciled differences', (b) => b.suspense], ['sub', 'Unallocated expenses (payer not assigned)', (b) => b.unallocated], ['total', 'Total liabilities', (b) => b.liabilities]);
     R.push(['sec', 'Equity'], ['sub', 'Share capital', (b) => b.capital], ['sub', 'Retained earnings', (b) => b.retained], ['total', 'Total equity', (b) => b.equity]);
     R.push(['grand', 'Total liabilities and equity', (b) => b.liabilities + b.equity], ['check', 'Check: assets less liabilities and equity', (b) => b.check]);
     return R;
@@ -151,7 +236,7 @@
   function cfRows() {
     return [
       ['sec', 'Operating activities'], ['sub', 'Net profit / (loss)', (c) => c.net_income], ['sub', 'Add back depreciation', (c) => c.dep],
-      ['sub', 'Increase in customer money owed', (c) => c.dCust], ['sub', 'Increase in unreconciled differences', (c) => c.dSusp], ['total', 'Net cash from operating activities', (c) => c.cfo],
+      ['sub', 'Increase in customer money owed', (c) => c.dCust], ['sub', 'Increase in unreconciled differences', (c) => c.dSusp], ['sub', 'Increase in unallocated expenses', (c) => c.dUnal], ['total', 'Net cash from operating activities', (c) => c.cfo],
       ['sec', 'Investing activities'], ['sub', 'Investments in fixed assets', (c) => c.capex], ['total', 'Net cash from investing activities', (c) => c.cfi],
       ['sec', 'Financing activities'], ['sub', 'Shareholder capital in', (c) => c.capitalIn], ['total', 'Net cash from financing activities', (c) => c.cff],
       ['grand', 'Net change in cash', (c) => c.netChange], ['sub', 'Cash at start of month', (c) => c.opening], ['grand', 'Cash at end of month', (c) => c.closing],
@@ -209,6 +294,7 @@
   let kind = 'expense';
   const fFrom = $('#f-from'), fTo = $('#f-to'), fCat = $('#f-cat'), fAcat = $('#f-acat');
   for (const [k, v] of Object.entries(CASH)) { fFrom.append(el('option', { value: k }, v)); if (k !== 'transit') fTo.append(el('option', { value: k }, v)); }
+  fFrom.append(el('option', { value: 'unallocated' }, 'Unallocated (payer not assigned yet)'));
   EXPENSE_CATS.forEach((c) => fCat.append(el('option', { value: c }, c)));
   ASSET_CATS.forEach((c) => fAcat.append(el('option', { value: c }, c)));
   $('#f-date').value = todayIso();
@@ -244,6 +330,7 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return msg('Pick a date for the entry.', 'err');
     if (!e.amount) return msg('Enter an amount above zero.', 'err');
     if (kind === 'transfer' && e.from === e.to) return msg('Choose two different accounts for an internal movement.', 'err');
+    if (kind === 'transfer' && e.from === 'unallocated') return msg('An internal movement needs a real account to send from.', 'err');
     if (!db) return msg('Saving is not available in this view. Open the page signed in to claude.ai.', 'err');
     $('#f-save').disabled = true; msg('Saving…');
     try {
@@ -307,7 +394,7 @@
   // ---------- render
   function renderAll() {
     books = buildBooks(entries, todayIso());
-    renderOverview(); renderStatement(); renderJournal(); renderManual();
+    renderOverview(); renderMonthly(); renderStatement(); renderJournal(); renderManual();
   }
 
   // boot

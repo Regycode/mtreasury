@@ -102,6 +102,14 @@ form.entry { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(1
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.mcharts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 16px 24px; }
+.mcharts > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mchart { position: relative; min-height: 200px; }
+.mchart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.mchart text { fill: var(--muted); font-size: 11px; font-family: var(--font-body); }
+.mtip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.12); padding: 6px 10px; font-size: 0.8rem; white-space: nowrap; z-index: 2; }
+.mtip b { font-family: var(--font-num); font-weight: 500; }
+#t-monthly td.n { font-size: 0.85rem; }
 @media (max-width: 560px) { .hide-sm { display: none; } }
 @media (prefers-reduced-motion: no-preference) { section[data-tab] { animation: fade .2s ease-out; } @keyframes fade { from { opacity: .4; } to { opacity: 1; } } }
 </style>
@@ -125,6 +133,18 @@ form.entry { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(1
   <!-- OVERVIEW -->
   <section data-tab="overview" id="overview">
     <div class="kpis" id="kpis"></div>
+    <div class="card" id="monthly">
+      <h2>Month by month</h2>
+      <p class="note">Fixed costs are operating expenses, recurring bank fees and depreciation. Telco fees move with volume. The running result includes exceptional items.</p>
+      <div class="mcharts">
+        <div><h3>Income vs fixed costs</h3><div class="legend" id="m-legend"></div><div class="mchart" id="m-bars" role="img" aria-label="Monthly income and fixed costs"></div></div>
+        <div><h3>Result to date</h3><p class="note">Running total, including exceptional items.</p><div class="mchart" id="m-line" role="img" aria-label="Cumulative result by month"></div></div>
+      </div>
+      <div class="tbox"><table id="t-monthly"><thead><tr>
+        <th>Month</th><th class="n">Income</th><th class="n hide-sm">Income to date</th><th class="n">Fixed costs</th><th class="n hide-sm">Telco fees</th>
+        <th class="n">Result</th><th class="n">Result to date</th><th class="n">Customer transactions</th><th class="n">Bank movements</th><th class="n hide-sm">Bank in</th><th class="n hide-sm">Bank out</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
     <div class="grid2">
       <div class="card">
         <h2>Shareholder input</h2>
@@ -242,11 +262,12 @@ form.entry { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(1
       <ul>
         <li><b>Shareholder capital</b> adds cash and share capital.</li>
         <li><b>Internal movement</b> moves cash between Moonie's accounts. Only its fee hits the income statement.</li>
-        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit.</li>
+        <li><b>Transaction cost</b> is a bank or telco charge, shown above gross profit. A one-off charge outside normal activity is marked exceptional and shown below the ordinary result, as SYSCOHADA does for HAO items.</li>
         <li><b>Customer deposit</b> adds cash and money owed to the customer. Moonie's fee on it is revenue; the telco's cut is a transaction cost.</li>
         <li><b>Customer payout</b> pays customer money out and reduces what Moonie owes them.</li>
         <li><b>Expense</b> is an operating cost paid in cash.</li>
         <li><b>Investment</b> becomes a fixed asset and is depreciated in equal monthly amounts.</li>
+        <li><b>Unallocated</b> is for costs paid outside the tracked accounts when it isn't settled who paid. They count as expenses straight away and sit as a liability until the payer is assigned. When shareholders turn out to have paid them personally, the amount moves to share capital.</li>
       </ul>
       <h3>General assumptions</h3>
       <ul>
@@ -280,16 +301,20 @@ function postEntry(e) {
   const dr = (acct, v) => { if (v) L.push({ acct, dr: v, cr: 0 }); };
   const cr = (acct, v) => { if (v) L.push({ acct, dr: 0, cr: v }); };
   const cash = (k) => 'cash:' + k;
+  // 'unallocated' = paid outside the tracked accounts, payer not yet assigned (held as a liability)
+  const paidFrom = (k) => (k === 'unallocated' ? 'liab:unallocated' : cash(k));
   switch (e.kind) {
     case 'capital': dr(cash(e.to), a); cr('eq:capital', a); break;
     case 'transfer': dr(cash(e.to), a); dr('cost:' + (e.fee_type || 'bank'), fee); cr(cash(e.from), a + fee); break;
-    case 'fee': dr('cost:' + (e.fee_type || 'bank'), a); cr(cash(e.from), a); break;
+    // exceptional: true = non-recurring, outside ordinary activity (SYSCOHADA HAO); shown below the ordinary result
+    case 'fee': dr(e.exceptional ? 'cost:exceptional' : 'cost:' + (e.fee_type || 'bank'), a); cr(cash(e.from), a); break;
     case 'collection': dr(cash(e.to), a + rev - fee); dr('cost:telco', fee); cr('liab:customer', a); cr('rev:collection', rev); break;
     case 'payout': dr('liab:customer', a); dr('cost:telco', fee); cr(cash(e.from), a + fee); break;
     case 'fee_income': dr('liab:customer', a); cr('rev:disbursement', a); break;
     case 'opening': dr(cash(e.to), a); cr('liab:' + (e.against || 'suspense'), a); break;
-    case 'expense': dr('opex:' + (e.category || 'Other'), a); cr(cash(e.from), a); break;
-    case 'investment': dr('fa:cost', a); cr(cash(e.from), a); break;
+    case 'expense': dr('opex:' + (e.category || 'Other'), a); cr(paidFrom(e.from), a); break;
+    case 'investment': dr('fa:cost', a); cr(paidFrom(e.from), a); break;
+    case 'settle': dr('liab:unallocated', a); cr(e.from === 'shareholder' ? 'eq:capital' : cash(e.from), a); break;
     case 'income': dr(cash(e.to), a); cr('rev:other', a); break;
   }
   return L;
@@ -359,8 +384,9 @@ function buildBooks(entries, todayIso) {
     const opex = Object.fromEntries(opexCats.map((c) => [c, flow('opex:' + c, mk)]));
     const opexTotal = Object.values(opex).reduce((s, v) => s + v, 0);
     const d = flow('dep:expense', mk);
-    const gross = revenue - txn, ebitda = gross - opexTotal, net = ebitda - d;
-    return { month: mk, revC, revD, revO, revenue, bank, telco, txn, gross, opex, opexTotal, ebitda, dep: d, net };
+    const exc = flow('cost:exceptional', mk);
+    const gross = revenue - txn, ebitda = gross - opexTotal, ordinary = ebitda - d, net = ordinary - exc;
+    return { month: mk, revC, revD, revO, revenue, bank, telco, txn, gross, opex, opexTotal, ebitda, dep: d, ordinary, exc, net };
   });
   const cumNet = (mk) => IS.filter((r) => r.month <= mk).reduce((s, r) => s + r.net, 0);
   const BS = months.map((mk) => {
@@ -368,41 +394,64 @@ function buildBooks(entries, todayIso) {
     const cashTotal = Object.values(cash).reduce((s, v) => s + v, 0);
     const faCost = bal('fa:cost', mk), accDep = -bal('fa:accdep', mk), faNet = faCost - accDep;
     const assets = cashTotal + faNet;
-    const customer = -bal('liab:customer', mk), suspense = -bal('liab:suspense', mk);
-    const liabilities = customer + suspense;
+    const customer = -bal('liab:customer', mk), suspense = -bal('liab:suspense', mk), unallocated = -bal('liab:unallocated', mk);
+    const liabilities = customer + suspense + unallocated;
     const capital = -bal('eq:capital', mk), retained = cumNet(mk);
     const equity = capital + retained;
-    return { month: mk, cash, cashTotal, faCost, accDep, faNet, assets, customer, suspense, liabilities, capital, retained, equity, check: assets - liabilities - equity };
+    return { month: mk, cash, cashTotal, faCost, accDep, faNet, assets, customer, suspense, unallocated, liabilities, capital, retained, equity, check: assets - liabilities - equity };
   });
   const CF = months.map((mk, i) => {
     const r = IS[i];
-    const dCust = -flow('liab:customer', mk), dSusp = -flow('liab:suspense', mk);
-    const cfo = r.net + r.dep + dCust + dSusp;
+    const dCust = -flow('liab:customer', mk), dSusp = -flow('liab:suspense', mk), dUnal = -flow('liab:unallocated', mk);
+    const cfo = r.net + r.dep + dCust + dSusp + dUnal;
+    const capitalIn = -flow('eq:capital', mk);
     const capex = -flow('fa:cost', mk);
     const cfi = capex;
-    const capitalIn = -flow('eq:capital', mk);
     const cff = capitalIn;
     const opening = i ? BS[i - 1].cashTotal : 0;
     const net = cfo + cfi + cff;
-    return { month: mk, net_income: r.net, dep: r.dep, dCust, dSusp, cfo, capex, cfi, capitalIn, cff, netChange: net, opening, closing: opening + net, check: opening + net - BS[i].cashTotal };
+    return { month: mk, net_income: r.net, dep: r.dep, dCust, dSusp, dUnal, cfo, capex, cfi, capitalIn, cff, netChange: net, opening, closing: opening + net, check: opening + net - BS[i].cashTotal };
   });
   const tb = journal.reduce((s, l) => s + l.dr - l.cr, 0);
   return { entries: es, months, journal, IS, BS, CF, opexCats, trialBalance: tb };
 }
 
-if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CASH, EXPENSE_CATS, ASSET_CATS };
+// Month-by-month operating view: income, fixed vs variable costs, running totals, activity counts.
+// Fixed costs = operating expenses + ordinary bank fees + depreciation. Telco fees vary with volume.
+function monthlyStats(books) {
+  const n = (v) => Math.round(Number(v) || 0);
+  let cumIncome = 0, cumNet = 0, cumOrdinary = 0;
+  return books.months.map((mk, i) => {
+    const r = books.IS[i];
+    const fixed = r.opexTotal + r.bank + r.dep;
+    cumIncome += r.revenue; cumNet += r.net; cumOrdinary += r.ordinary;
+    let payouts = 0, collections = 0, payVol = 0, colVol = 0, bankCount = 0, bankIn = 0, bankOut = 0;
+    for (const e of books.entries) {
+      if (e.date.slice(0, 7) !== mk) continue;
+      const c = Math.max(1, n(e.count) || 1);
+      if (e.kind === 'payout') { payouts += c; payVol += n(e.amount); }
+      if (e.kind === 'collection') { collections += c; colVol += n(e.amount); }
+      const lines = postEntry(e).filter((l) => l.acct === 'cash:cca');
+      if (lines.length) { bankCount += c; for (const l of lines) { bankIn += l.dr; bankOut += l.cr; } }
+    }
+    return { month: mk, income: r.revenue, telco: r.telco, fixed, ordinary: r.ordinary, exc: r.exc, net: r.net,
+      cumIncome, cumOrdinary, cumNet, payouts, collections, transactions: payouts + collections, payVol, colVol, bankCount, bankIn, bankOut };
+  });
+}
+
+if (typeof module !== 'undefined') module.exports = { buildBooks, monthlyStats, postEntry, CASH, EXPENSE_CATS, ASSET_CATS };
 (() => {
   const $ = (s) => document.querySelector(s);
   const KIND = {
     capital: 'Shareholder capital', transfer: 'Internal movement', fee: 'Transaction cost', collection: 'Customer deposit',
     payout: 'Customer payout', fee_income: 'Fee charged to customer', opening: 'Opening balance', expense: 'Expense',
-    investment: 'Investment', income: 'Other income',
+    investment: 'Investment', income: 'Other income', settle: 'Unallocated cost settled',
   };
   const ACCT_FIXED = {
     'fa:cost': 'Fixed assets', 'fa:accdep': 'Accumulated depreciation', 'liab:customer': 'Customer money owed',
-    'liab:suspense': 'Unreconciled differences', 'eq:capital': 'Share capital', 'rev:collection': 'Collection fees',
+    'liab:suspense': 'Unreconciled differences', 'liab:unallocated': 'Unallocated expenses', 'eq:capital': 'Share capital', 'rev:collection': 'Collection fees',
     'rev:disbursement': 'Disbursement fees', 'rev:other': 'Other income', 'cost:bank': 'Bank fees', 'cost:telco': 'Telco fees',
-    'dep:expense': 'Depreciation',
+    'dep:expense': 'Depreciation', 'cost:exceptional': 'Exceptional items (HAO)',
   };
   const acctName = (a) => a.startsWith('cash:') ? CASH[a.slice(5)] || a : a.startsWith('opex:') ? a.slice(5) : ACCT_FIXED[a] || a;
   const STATUS_LABEL = { confirmed: 'Confirmed', estimate: 'Estimate', check: 'To check', manual: 'Added by you' };
@@ -455,13 +504,14 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
   // ---------- overview
   function renderOverview() {
     const B = books.BS[books.BS.length - 1];
-    const totIS = books.IS.reduce((s, r) => s + r.net, 0);
-    const capital = books.entries.filter((e) => e.kind === 'capital');
+    const totIS = books.IS.reduce((s, r) => s + r.ordinary, 0);
+    const totNet = books.IS.reduce((s, r) => s + r.net, 0);
+    const capital = books.entries.filter((e) => e.kind === 'capital' || (e.kind === 'settle' && e.from === 'shareholder'));
     const kpis = [
       ['Cash across all accounts', xaf(B.cashTotal) + ' XAF', 'Bank, wallets and off platform'],
       ['Shareholder input', xaf(B.capital) + ' XAF', capital.length + ' contributions'],
       ['Customer money owed', xaf(B.customer) + ' XAF', 'Held for clients, not Moonie\'s'],
-      ['Net result to date', (totIS < 0 ? '−' : '') + xaf(Math.abs(totIS)) + ' XAF', totIS < 0 ? 'Loss so far' : 'Profit so far'],
+      ['Ordinary result to date', (totIS < 0 ? '−' : '') + xaf(Math.abs(totIS)) + ' XAF', 'Net after exceptional items: ' + (totNet < 0 ? '−' : '') + xaf(Math.abs(totNet))],
     ];
     $('#kpis').replaceChildren(...kpis.map(([l, v, s]) => el('div', { class: 'kpi' }, el('span', { class: 'l' }, l), el('span', { class: 'v' }, v), el('span', { class: 's' }, s))));
     $('#cashline').replaceChildren('Cash today ', el('b', {}, xaf(B.cashTotal)), ' XAF · books ', B.check === 0 ? 'balance' : 'do not balance');
@@ -471,7 +521,7 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
     for (const e of capital) {
       const k = e.counterparty || 'Not named';
       const o = by[k] || (by[k] = { amt: 0, where: new Set(), st: new Set() });
-      o.amt += num(e.amount); o.where.add(CASH[e.to] || e.to); o.st.add(statusOf(e));
+      o.amt += num(e.amount); o.where.add(e.kind === 'settle' ? 'Costs paid personally' : CASH[e.to] || e.to); o.st.add(statusOf(e));
     }
     const capRows = Object.entries(by).sort((a, b) => b[1].amt - a[1].amt).map(([k, o]) => el('tr', {},
       td(k), td([...o.where].join(', '), 'hide-sm'), td(xaf(o.amt), 'n'),
@@ -516,6 +566,89 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
       .concat([el('tr', { class: 'grand' }, td('Total cash'), td(xaf(B.cashTotal), 'n'), td(''), td('', 'hide-sm'))]));
   }
 
+  // ---------- month by month
+  const compact = (v) => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1e6 ? s + (a / 1e6).toFixed(a % 1e6 ? 1 : 0) + 'M' : a >= 1e3 ? s + Math.round(a / 1e3) + 'k' : s + Math.round(a); };
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs) => { const n = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
+  function niceTicks(lo, hi, count) {
+    const span = hi - lo || 1, raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= count) || 10 * mag;
+    const out = []; for (let v = Math.floor(lo / step) * step; v <= hi + step * 0.001; v += step) out.push(Math.round(v)); return out;
+  }
+  function renderMonthly() {
+    const M = monthlyStats(books);
+    const sumK = (k) => M.reduce((s, m) => s + m[k], 0);
+    fill('#t-monthly', M.map((m) => el('tr', {},
+      td(monthLabel(m.month)), td(acc(m.income), 'n'), td(acc(m.cumIncome), 'n hide-sm'), td(acc(-m.fixed), 'n'), td(acc(-m.telco), 'n hide-sm'),
+      td(acc(m.ordinary), 'n' + (m.ordinary < 0 ? ' neg' : '')), td(acc(m.cumNet), 'n' + (m.cumNet < 0 ? ' neg' : '')),
+      td(xaf(m.transactions), 'n'), td(xaf(m.bankCount), 'n'), td(acc(m.bankIn), 'n hide-sm'), td(acc(-m.bankOut), 'n hide-sm'))).concat([
+      el('tr', { class: 'total' }, td('Total'), td(acc(sumK('income')), 'n'), td('', 'hide-sm'), td(acc(-sumK('fixed')), 'n'), td(acc(-sumK('telco')), 'n hide-sm'),
+        td(acc(sumK('ordinary')), 'n'), td(acc(M.length ? M[M.length - 1].cumNet : 0), 'n'), td(xaf(sumK('transactions')), 'n'), td(xaf(sumK('bankCount')), 'n'),
+        td(acc(sumK('bankIn')), 'n hide-sm'), td(acc(-sumK('bankOut')), 'n hide-sm'))]));
+
+    const C = { income: 'var(--ok)', fixed: 'var(--warn)', cum: 'var(--accent)' };
+    $('#m-legend').replaceChildren(
+      el('span', {}, el('i', { class: 'sw', style: `background:${C.income}` }), 'Income'),
+      el('span', {}, el('i', { class: 'sw', style: `background:${C.fixed}` }), 'Fixed costs'));
+    const tipLines = (m) => [el('div', { style: 'color:var(--muted)' }, monthLabel(m.month)),
+      el('div', {}, 'Income ', el('b', {}, xaf(m.income))), el('div', {}, 'Fixed costs ', el('b', {}, xaf(m.fixed))),
+      el('div', {}, 'Result to date ', el('b', {}, acc(m.cumNet))), el('div', {}, m.transactions + ' customer transactions · ' + m.bankCount + ' bank movements')];
+    monthChart('#m-bars', M, [m => m.income, m => m.fixed], 'bars', [C.income, C.fixed], tipLines);
+    monthChart('#m-line', M, [m => m.cumNet], 'line', [C.cum], tipLines);
+  }
+  // One small chart per job: grouped bars, or a line with points. Scale fits its own series.
+  function monthChart(sel, M, series, type, colors, tipLines) {
+    const box = $(sel);
+    box.replaceChildren();
+    if (!M.length) return;
+    const W = Math.max(280, box.clientWidth || 480), H = 200, mt = 10, mb = 24;
+    const vals = M.flatMap((m) => series.map((f) => f(m)));
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals, 1), 4);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}` });
+    box.append(svg);
+    const probe = sv('text', {}); svg.append(probe);
+    let ml = 0; for (const t of ticks) { probe.textContent = compact(t); ml = Math.max(ml, probe.getComputedTextLength ? probe.getComputedTextLength() : 30); }
+    probe.remove(); ml += 10;
+    const mr = 8, band = (W - ml - mr) / M.length;
+    const y = (v) => mt + (H - mt - mb) * (1 - (v - y0) / (y1 - y0 || 1));
+    for (const t of ticks) {
+      svg.append(sv('line', { x1: ml, x2: W - mr, y1: y(t), y2: y(t), stroke: t === 0 ? 'var(--muted)' : 'var(--line)', 'stroke-width': 1 }));
+      const lab = sv('text', { x: ml - 6, y: y(t), 'text-anchor': 'end', 'dominant-baseline': 'middle' }); lab.textContent = compact(t); svg.append(lab);
+    }
+    const bw = Math.min(28, band * 0.3);
+    const pts = [];
+    M.forEach((m, i) => {
+      const cx = ml + band * (i + 0.5);
+      const lab = sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle' }); lab.textContent = monthLabel(m.month); svg.append(lab);
+      if (type === 'bars') {
+        series.forEach((f, k) => {
+          const v = f(m), x = cx - (series.length * (bw + 4)) / 2 + k * (bw + 4) + 2;
+          if (v) svg.append(sv('rect', { x, y: y(Math.max(0, v)), width: bw, height: Math.max(1, Math.abs(y(v) - y(0))), rx: 3, fill: colors[k] }));
+        });
+      } else pts.push([cx, y(series[0](m))]);
+    });
+    if (pts.length) {
+      svg.append(sv('polyline', { points: pts.map((p) => p.join(',')).join(' '), fill: 'none', stroke: colors[0], 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      pts.forEach(([px, py], i) => { svg.append(sv('circle', { cx: px, cy: py, r: i === pts.length - 1 ? 4.5 : 3.5, fill: colors[0] })); });
+      const [lx, ly] = pts[pts.length - 1];
+      const end = sv('text', { x: lx, y: ly - 10, 'text-anchor': 'end', style: 'fill:var(--ink);font-weight:500' }); end.textContent = compact(series[0](M[M.length - 1])); svg.append(end);
+    }
+    const tip = el('div', { class: 'mtip', hidden: true }); box.append(tip);
+    M.forEach((m, i) => {
+      const hit = sv('rect', { x: ml + band * i, y: mt, width: band, height: H - mt - mb, fill: 'transparent' });
+      hit.addEventListener('mousemove', (ev) => {
+        const r = box.getBoundingClientRect();
+        tip.replaceChildren(...tipLines(m)); tip.hidden = false;
+        tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, ev.clientX - r.left + 12)) + 'px';
+        tip.style.top = Math.max(0, ev.clientY - r.top - tip.offsetHeight - 8) + 'px';
+      });
+      hit.addEventListener('mouseleave', () => { tip.hidden = true; });
+      svg.append(hit);
+    });
+  }
+  let rsz; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(renderMonthly, 150); });
+
   // ---------- statements
   let stmt = 'is';
   function isRows() {
@@ -529,14 +662,15 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
     if (!books.opexCats.length) R.push(['sub', 'None recorded yet', () => 0]);
     for (const c of books.opexCats) R.push(['sub', c, (r) => -(r.opex[c] || 0)]);
     R.push(['total', 'Total operating expenses', (r) => -r.opexTotal]);
-    R.push(['grand', 'EBITDA', (r) => r.ebitda], ['sub', 'Depreciation', (r) => -r.dep], ['grand', 'Net profit / (loss)', (r) => r.net]);
+    R.push(['grand', 'EBITDA', (r) => r.ebitda], ['sub', 'Depreciation', (r) => -r.dep], ['grand', 'Ordinary result', (r) => r.ordinary]);
+    R.push(['sub', 'Exceptional items (HAO)', (r) => -r.exc], ['grand', 'Net profit / (loss)', (r) => r.net]);
     return R;
   }
   function bsRows() {
     const R = [['sec', 'Assets']];
     for (const k of Object.keys(CASH)) R.push(['sub', CASH[k], (b) => b.cash[k]]);
     R.push(['total', 'Total cash', (b) => b.cashTotal], ['sub', 'Fixed assets at cost', (b) => b.faCost], ['sub', 'Accumulated depreciation', (b) => -b.accDep], ['grand', 'Total assets', (b) => b.assets]);
-    R.push(['sec', 'Liabilities'], ['sub', 'Customer money owed', (b) => b.customer], ['sub', 'Unreconciled differences', (b) => b.suspense], ['total', 'Total liabilities', (b) => b.liabilities]);
+    R.push(['sec', 'Liabilities'], ['sub', 'Customer money owed', (b) => b.customer], ['sub', 'Unreconciled differences', (b) => b.suspense], ['sub', 'Unallocated expenses (payer not assigned)', (b) => b.unallocated], ['total', 'Total liabilities', (b) => b.liabilities]);
     R.push(['sec', 'Equity'], ['sub', 'Share capital', (b) => b.capital], ['sub', 'Retained earnings', (b) => b.retained], ['total', 'Total equity', (b) => b.equity]);
     R.push(['grand', 'Total liabilities and equity', (b) => b.liabilities + b.equity], ['check', 'Check: assets less liabilities and equity', (b) => b.check]);
     return R;
@@ -544,7 +678,7 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
   function cfRows() {
     return [
       ['sec', 'Operating activities'], ['sub', 'Net profit / (loss)', (c) => c.net_income], ['sub', 'Add back depreciation', (c) => c.dep],
-      ['sub', 'Increase in customer money owed', (c) => c.dCust], ['sub', 'Increase in unreconciled differences', (c) => c.dSusp], ['total', 'Net cash from operating activities', (c) => c.cfo],
+      ['sub', 'Increase in customer money owed', (c) => c.dCust], ['sub', 'Increase in unreconciled differences', (c) => c.dSusp], ['sub', 'Increase in unallocated expenses', (c) => c.dUnal], ['total', 'Net cash from operating activities', (c) => c.cfo],
       ['sec', 'Investing activities'], ['sub', 'Investments in fixed assets', (c) => c.capex], ['total', 'Net cash from investing activities', (c) => c.cfi],
       ['sec', 'Financing activities'], ['sub', 'Shareholder capital in', (c) => c.capitalIn], ['total', 'Net cash from financing activities', (c) => c.cff],
       ['grand', 'Net change in cash', (c) => c.netChange], ['sub', 'Cash at start of month', (c) => c.opening], ['grand', 'Cash at end of month', (c) => c.closing],
@@ -602,6 +736,7 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
   let kind = 'expense';
   const fFrom = $('#f-from'), fTo = $('#f-to'), fCat = $('#f-cat'), fAcat = $('#f-acat');
   for (const [k, v] of Object.entries(CASH)) { fFrom.append(el('option', { value: k }, v)); if (k !== 'transit') fTo.append(el('option', { value: k }, v)); }
+  fFrom.append(el('option', { value: 'unallocated' }, 'Unallocated (payer not assigned yet)'));
   EXPENSE_CATS.forEach((c) => fCat.append(el('option', { value: c }, c)));
   ASSET_CATS.forEach((c) => fAcat.append(el('option', { value: c }, c)));
   $('#f-date').value = todayIso();
@@ -637,6 +772,7 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return msg('Pick a date for the entry.', 'err');
     if (!e.amount) return msg('Enter an amount above zero.', 'err');
     if (kind === 'transfer' && e.from === e.to) return msg('Choose two different accounts for an internal movement.', 'err');
+    if (kind === 'transfer' && e.from === 'unallocated') return msg('An internal movement needs a real account to send from.', 'err');
     if (!db) return msg('Saving is not available in this view. Open the page signed in to claude.ai.', 'err');
     $('#f-save').disabled = true; msg('Saving…');
     try {
@@ -700,7 +836,7 @@ if (typeof module !== 'undefined') module.exports = { buildBooks, postEntry, CAS
   // ---------- render
   function renderAll() {
     books = buildBooks(entries, todayIso());
-    renderOverview(); renderStatement(); renderJournal(); renderManual();
+    renderOverview(); renderMonthly(); renderStatement(); renderJournal(); renderManual();
   }
 
   // boot
